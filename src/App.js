@@ -7,6 +7,8 @@ const formatCurrency = (n) => new Intl.NumberFormat("es-AR", { style: "currency"
 const formatDate = (d) => new Date(d + "T00:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
 const todayStr = () => new Date().toISOString().split("T")[0];
 
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbxUbS17ty9agIwVK0pvhGghpaTlXz0C8bo78nZlPuBRUFh0inSwYQsa6qYk_0pHZUVOww/exec";
+
 const loadLocal = (key, fallback) => {
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
 };
@@ -27,14 +29,46 @@ export default function FlujoCaja() {
   const [expenseForm, setExpenseForm] = useState({ amount: "", description: "", category: "", date: todayStr(), reminder: false });
   const [classifying, setClassifying] = useState({ income: false, expense: false });
   const [toast, setToast] = useState(null);
-  const [sheetsUrl, setSheetsUrl] = useState(() => loadLocal("fc_sheetsUrl", ""));
+  const [sheetsUrl, setSheetsUrl] = useState(SHEETS_URL);
   const [whatsappConfig, setWhatsappConfig] = useState(() => loadLocal("fc_whatsapp", { phone: "" }));
   const [syncing, setSyncing] = useState(false);
   const [filterType, setFilterType] = useState("all");
   const [filterPeriod, setFilterPeriod] = useState("week");
   const [summaryPeriod, setSummaryPeriod] = useState("week");
 
+  // Al abrir la app, si hay URL de Sheets configurada carga desde ahi
+  useEffect(() => {
+    if (sheetsUrl) {
+      autoLoadFromSheets(sheetsUrl);
+    }
+  }, []);
+
+  // Solo guarda local como cache de respaldo
   useEffect(() => { saveLocal("fc_entries", entries); }, [entries]);
+
+  const autoLoadFromSheets = async (url) => {
+    setSyncing(true);
+    try {
+      const res = await fetch(`${url}?action=getAll`);
+      const text = await res.text();
+      const data = JSON.parse(text);
+      if (data.entries && data.entries.length > 0) {
+        const mapped = data.entries.map(e => ({
+          id: String(e.id),
+          type: String(e.tipo),
+          amount: parseFloat(e.monto) || 0,
+          description: String(e.descripcion || ""),
+          category: String(e.categoria || ""),
+          date: String(e.fecha || ""),
+          status: String(e.estado || "confirmed"),
+          reminder: e.recordatorio === "Si",
+          time: ""
+        })).filter(e => e.type === "income" || e.type === "expense");
+        setEntries(mapped);
+      }
+    } catch {}
+    setSyncing(false);
+  };
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
