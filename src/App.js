@@ -23,7 +23,8 @@ const DEMO_ENTRIES = [
 ];
 
 export default function FlujoCaja() {
-  const [entries, setEntries] = useState(() => loadLocal("fc_entries", DEMO_ENTRIES));
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState("dashboard");
   const [incomeForm, setIncomeForm] = useState({ amount: "", description: "", category: "", date: todayStr(), reminder: false });
   const [expenseForm, setExpenseForm] = useState({ amount: "", description: "", category: "", date: todayStr(), reminder: false });
@@ -36,23 +37,17 @@ export default function FlujoCaja() {
   const [filterPeriod, setFilterPeriod] = useState("week");
   const [summaryPeriod, setSummaryPeriod] = useState("week");
 
-  // Al abrir la app, si hay URL de Sheets configurada carga desde ahi
-  useEffect(() => {
-    if (sheetsUrl) {
-      autoLoadFromSheets(sheetsUrl);
-    }
-  }, []);
+  // Siempre carga desde Sheets al abrir la app
+  useEffect(() => { fetchFromSheets(); }, []);
 
-  // Solo guarda local como cache de respaldo
-  useEffect(() => { saveLocal("fc_entries", entries); }, [entries]);
-
-  const autoLoadFromSheets = async (url) => {
+  const fetchFromSheets = async () => {
+    setLoading(true);
     setSyncing(true);
     try {
-      const res = await fetch(`${url}?action=getAll`);
+      const res = await fetch(`${SHEETS_URL}?action=getAll`);
       const text = await res.text();
       const data = JSON.parse(text);
-      if (data.entries && data.entries.length > 0) {
+      if (data.entries) {
         const mapped = data.entries.map(e => ({
           id: String(e.id),
           type: String(e.tipo),
@@ -66,8 +61,9 @@ export default function FlujoCaja() {
         })).filter(e => e.type === "income" || e.type === "expense");
         setEntries(mapped);
       }
-    } catch {}
+    } catch { showToast("No se pudo conectar con Sheets", "error"); }
     setSyncing(false);
+    setLoading(false);
   };
 
   const showToast = (msg, type = "success") => {
@@ -161,7 +157,7 @@ export default function FlujoCaja() {
     setSyncing(false);
   };
 
-  const addEntry = (type) => {
+  const addEntry = async (type) => {
     const form = type === "income" ? incomeForm : expenseForm;
     if (!form.amount || !form.description) { showToast("Completa monto y descripcion", "error"); return; }
     const entry = {
@@ -174,17 +170,17 @@ export default function FlujoCaja() {
       status: form.date > todayStr() ? "pending" : "confirmed",
       reminder: form.reminder,
     };
-    setEntries(prev => [entry, ...prev]);
     if (type === "income") setIncomeForm({ amount: "", description: "", category: "", date: todayStr(), reminder: false });
     else setExpenseForm({ amount: "", description: "", category: "", date: todayStr(), reminder: false });
-    showToast(`${type === "income" ? "Ingreso" : "Egreso"} registrado`);
-    sendToSheets(entry);
+    showToast(`${type === "income" ? "Ingreso" : "Egreso"} registrado. Sincronizando...`);
+    await sendToSheets(entry);
+    await fetchFromSheets();
   };
 
-  const deleteEntry = (id) => {
-    setEntries(prev => prev.filter(e => e.id !== id));
-    deleteFromSheets(id);
+  const deleteEntry = async (id) => {
+    await deleteFromSheets(id);
     showToast("Registro eliminado", "info");
+    await fetchFromSheets();
   };
 
   const now = new Date();
@@ -561,7 +557,10 @@ export default function FlujoCaja() {
         <div style={s.header}>
           <div style={s.logo}>
             flujo<span style={s.logoAccent}>caja</span>
-            <span style={s.syncDot} title={sheetsUrl ? (syncing ? "Sincronizando..." : "Conectado a Sheets") : "Sin Sheets"} />
+            <span style={s.syncDot} title={syncing ? "Sincronizando..." : "Conectado a Sheets"} />
+            <button onClick={fetchFromSheets} disabled={syncing} title="Actualizar datos" style={{background:"none",border:"none",color:"#475569",cursor:"pointer",fontSize:14,marginLeft:4,padding:0}}>
+              {syncing ? "⟳" : "↺"}
+            </button>
           </div>
           <nav style={s.nav}>
             {[["dashboard","Panel"],["history","Historial"],["summary","Resumenes"],["settings","Ajustes"]].map(([v,l]) => (
@@ -569,10 +568,15 @@ export default function FlujoCaja() {
             ))}
           </nav>
         </div>
-        {view === "dashboard" && renderDashboard()}
-        {view === "history" && renderHistory()}
-        {view === "summary" && renderSummary()}
-        {view === "settings" && renderSettings()}
+        {loading ? (
+        <div style={{textAlign:"center",padding:"80px 0",color:"#475569"}}>
+          <div style={{fontSize:32,marginBottom:12}}>⟳</div>
+          <div style={{fontSize:14}}>Cargando datos desde Google Sheets...</div>
+        </div>
+      ) : view === "dashboard" && renderDashboard()}
+        {!loading && view === "history" && renderHistory()}
+        {!loading && view === "summary" && renderSummary()}
+        {!loading && view === "settings" && renderSettings()}
       </div>
       {toast && <div style={s.toast(toast.type)}>{toast.msg}</div>}
     </div>
