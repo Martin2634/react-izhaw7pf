@@ -48,13 +48,22 @@ export default function FlujoCaja() {
       const text = await res.text();
       const data = JSON.parse(text);
       if (data.entries) {
+        const parseDate = (val) => {
+          if (!val) return todayStr();
+          // Si ya viene como YYYY-MM-DD
+          if (/^\d{4}-\d{2}-\d{2}$/.test(String(val))) return String(val);
+          // Si viene como objeto Date de Sheets o string con formato distinto
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+          return todayStr();
+        };
         const mapped = data.entries.map(e => ({
           id: String(e.id),
           type: String(e.tipo),
           amount: parseFloat(e.monto) || 0,
           description: String(e.descripcion || ""),
           category: String(e.categoria || ""),
-          date: String(e.fecha || ""),
+          date: parseDate(e.fecha),
           status: String(e.estado || "confirmed"),
           reminder: e.recordatorio === "Si",
           time: ""
@@ -137,13 +146,22 @@ export default function FlujoCaja() {
       const text = await res.text();
       const data = JSON.parse(text);
       if (data.entries) {
+        const parseDate = (val) => {
+          if (!val) return todayStr();
+          // Si ya viene como YYYY-MM-DD
+          if (/^\d{4}-\d{2}-\d{2}$/.test(String(val))) return String(val);
+          // Si viene como objeto Date de Sheets o string con formato distinto
+          const d = new Date(val);
+          if (!isNaN(d.getTime())) return d.toISOString().split("T")[0];
+          return todayStr();
+        };
         const mapped = data.entries.map(e => ({
           id: String(e.id),
           type: String(e.tipo),
           amount: parseFloat(e.monto) || 0,
           description: String(e.descripcion || ""),
           category: String(e.categoria || ""),
-          date: String(e.fecha || ""),
+          date: parseDate(e.fecha),
           status: String(e.estado || "confirmed"),
           reminder: e.recordatorio === "Si",
           time: ""
