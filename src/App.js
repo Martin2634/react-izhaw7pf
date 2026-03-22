@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 // ── Configuración ─────────────────────────────────────────────
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbxUbS17ty9agIwVK0pvhGghpaTlXz0C8bo78nZlPuBRUFh0inSwYQsa6qYk_0pHZUVOww/exec";
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbztrTTIm0IXTez76By4QVXWGWjDDjObwbALAaIQbjF5Az4WhW_3ib_lPdl2f0QkXbYBeA/exec";
 
 const SUCURSALES_DEFAULT = ["Sucursal 1", "Sucursal 2"];
 const COSTOS_FIJOS = ["Alquiler","Expensas","Luz","DirecTV","Internet","Sistema de ventas","Seguros","Suscripciones","Impuestos","Rupturas","Mejoras / Inversiones","Otros"];
